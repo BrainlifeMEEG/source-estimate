@@ -1,4 +1,4 @@
-# app-source-estimate-v2
+# source-estimate
 
 Apply a pre-computed inverse operator to evoked MEG/EEG data and produce source estimates (STCs).
 
