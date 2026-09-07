@@ -40,12 +40,6 @@ import matplotlib.pyplot as plt
 
 import mne
 
-def _safe_label(comment):
-    """Convert evoked comment to a safe filename suffix."""
-    if not comment:
-        return ''
-    return re.sub(r'[^A-Za-z0-9_-]', '_', comment.strip())
-
 # == SETUP ==
 ensure_output_dirs('out_dir', 'out_figs', 'out_report')
 report_items = []
@@ -126,19 +120,46 @@ except Exception as e:
     sys.exit(1)
 
 # == INVERSE PARAMETERS ==
-method    = config.get('method') or 'dSPM'
-snr       = float(config.get('snr') or 3.0)
+method = config.get('method') or 'dSPM'
+
+try:
+    snr = float(config.get('snr') or 3.0)
+except (TypeError, ValueError):
+    add_info_to_product(
+        report_items,
+        f"FATAL: snr='{config.get('snr')}' is not a valid number.",
+        "error"
+    )
+    create_product_json(report_items)
+    sys.exit(1)
+
 _pick_ori = config.get('pick_ori')
 pick_ori  = None if _pick_ori in (None, '', 'None') else _pick_ori
 lambda2   = 1.0 / snr ** 2
 
-def _parse_time(val):
-    if val in (None, '', 'None'):
-        return None
-    return float(val)
+_tmin_raw = config.get('tmin')
+try:
+    crop_tmin = None if _tmin_raw in (None, '', 'None') else float(_tmin_raw)
+except (TypeError, ValueError):
+    add_info_to_product(
+        report_items,
+        f"FATAL: tmin='{_tmin_raw}' is not a valid number.",
+        "error"
+    )
+    create_product_json(report_items)
+    sys.exit(1)
 
-crop_tmin = _parse_time(config.get('tmin'))
-crop_tmax = _parse_time(config.get('tmax'))
+_tmax_raw = config.get('tmax')
+try:
+    crop_tmax = None if _tmax_raw in (None, '', 'None') else float(_tmax_raw)
+except (TypeError, ValueError):
+    add_info_to_product(
+        report_items,
+        f"FATAL: tmax='{_tmax_raw}' is not a valid number.",
+        "error"
+    )
+    create_product_json(report_items)
+    sys.exit(1)
 
 valid_methods = ('MNE', 'dSPM', 'sLORETA', 'eLORETA')
 if method not in valid_methods:
@@ -197,7 +218,8 @@ morph = None   # computed once from first STC, reused for all conditions
 stc_list = []   # (label, stc) for QC figures
 
 for ev in evoked_list:
-    label = _safe_label(ev.comment) or f'cond{len(stc_list)}'
+    _label_raw = re.sub(r'[^A-Za-z0-9_-]', '_', ev.comment.strip()) if ev.comment else ''
+    label = _label_raw or f'cond{len(stc_list)}'
     suffix = f'_{label}' if len(evoked_list) > 1 else ''
 
     try:
@@ -276,18 +298,16 @@ except Exception as e:
     add_info_to_product(report_items, f"Could not plot evoked: {e}", "warning")
 
 # Source time course — one figure per condition, LH + RH side by side
-def _hemi_tc(stc, hemi):
-    n_lh = len(stc.vertices[0])
-    return stc.data[:n_lh].mean(axis=0) if hemi == 'lh' else stc.data[n_lh:].mean(axis=0)
-
 tc_fig_paths = {}  # label → saved png path
 try:
     for label, stc, _ in stc_list:
+        _n_lh = len(stc.vertices[0])
         fig_tc, axes_tc = plt.subplots(1, 2, figsize=(12, 4), sharey=True)
         fig_tc.suptitle(f'Source Time Course — {label}  ({method})', fontsize=10)
         for ax_tc, _hl, _htitle in zip(axes_tc, ('lh', 'rh'),
                                        ('Left Hemisphere', 'Right Hemisphere')):
-            ax_tc.plot(stc.times * 1000, _hemi_tc(stc, _hl), lw=1.5, color='steelblue')
+            _tc_data = stc.data[:_n_lh].mean(axis=0) if _hl == 'lh' else stc.data[_n_lh:].mean(axis=0)
+            ax_tc.plot(stc.times * 1000, _tc_data, lw=1.5, color='steelblue')
             ax_tc.axhline(0, color='k', lw=0.5)
             ax_tc.axvline(0, color='k', lw=0.5, ls='--')
             ax_tc.set_xlabel('Time (ms)')
@@ -301,11 +321,13 @@ try:
         tc_fig_paths[label] = fig_path
     # product.json thumbnail — use grand avg if multiple conditions, else the single one
     if len(stc_list) > 1:
+        _n_lh_ga = len(stc_ga.vertices[0])
         fig_ga, axes_ga = plt.subplots(1, 2, figsize=(12, 4), sharey=True)
         fig_ga.suptitle(f'Source Time Course — Grand Average  ({method})', fontsize=10)
         for ax_tc, _hl, _htitle in zip(axes_ga, ('lh', 'rh'),
                                        ('Left Hemisphere', 'Right Hemisphere')):
-            ax_tc.plot(stc_ga.times * 1000, _hemi_tc(stc_ga, _hl), lw=2, color='black')
+            _tc_data = stc_ga.data[:_n_lh_ga].mean(axis=0) if _hl == 'lh' else stc_ga.data[_n_lh_ga:].mean(axis=0)
+            ax_tc.plot(stc_ga.times * 1000, _tc_data, lw=2, color='black')
             ax_tc.axhline(0, color='k', lw=0.5)
             ax_tc.axvline(0, color='k', lw=0.5, ls='--')
             ax_tc.set_xlabel('Time (ms)')
@@ -338,48 +360,8 @@ except Exception as e:
 # Brain surface filmstrip — grand average STC at multiple timepoints
 if subject and subjects_dir:
     try:
-        from qtpy.QtWidgets import QApplication
-        _qapp = QApplication.instance() or QApplication(sys.argv)
-
-        import pyvista as pv
-        pv.OFF_SCREEN = True
-        mne.viz.set_3d_backend('pyvistaqt')
-
-        from mne.viz.backends._pyvista import (
-            PyVistaFigure, Plotter as PVPlotter, _PyVistaRenderer, _ALL_PLOTTERS,
-        )
-        import mne.viz.backends.renderer as renderer_mod
-
-        def _patched_build(self):
-            if self._plotter is None:
-                store_filtered = {k: v for k, v in self.store.items()
-                                  if k in ('window_size', 'shape', 'border', 'multi_samples')}
-                plotter = PVPlotter(off_screen=True, **store_filtered)
-                plotter.background_color = self.background_color
-                self._plotter = plotter
-                try:
-                    _ALL_PLOTTERS[plotter._id_name] = plotter
-                except AttributeError:
-                    pass
-            if self.plotter.iren is not None:
-                self.plotter.iren.initialize()
-                def safe_update(stime=1, force_redraw=True):
-                    self.plotter.render()
-                self.plotter.update = safe_update
-            return self.plotter
-
-        PyVistaFigure._build = _patched_build
-
-        class _OffscreenRenderer(_PyVistaRenderer):
-            _kind = 'pyvistaqt'
-            def show(self):
-                self.figure.plotter.show(auto_close=False)
-            def __getattr__(self, name):
-                if name.startswith(('_window_', '_dock_', '_enable_', '_disable_')):
-                    return lambda *a, **kw: None
-                raise AttributeError(name)
-
-        renderer_mod.backend._Renderer = _OffscreenRenderer
+        from brainlife_utils import setup_offscreen_3d_backend
+        setup_offscreen_3d_backend()
 
         # 6 evenly-spaced timepoints from 0 ms to epoch end
         _t_pos  = stc_ga.times[stc_ga.times >= 0]

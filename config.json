@@ -1,0 +1,14 @@
+{
+    "inverse": "in_dir/inverse-inv.fif",
+    "evoked": "in_dir/ave.fif",
+    "epo": null,
+    "method": "dSPM",
+    "snr": 3.0,
+    "pick_ori": "",
+    "tmin": null,
+    "tmax": null,
+    "freesurfer": "in_dir/freesurfer",
+    "subjects_dir": "",
+    "subject": "",
+    "morph_to_fsaverage": false
+}

@@ -1,5 +1,8 @@
 # source-estimate
 
+[![Abcdspec-compliant](https://img.shields.io/badge/ABCD_Spec-v1.1-green.svg)](https://github.com/brain-life/abcd-spec)
+[![Run on Brainlife.io](https://img.shields.io/badge/Brainlife-bl.app.906-blue.svg)](https://doi.org/10.25663/brainlife.app.906)
+
 Apply a pre-computed inverse operator to evoked MEG/EEG data and produce source estimates (STCs).
 
 Part of the Brainlife source reconstruction pipeline:
@@ -108,3 +111,11 @@ MNE 1.11 · Python 3.12 · 20 GB RAM · 1 h wall time
 
 Guiomar Niso, Antonio Caulín, Maximilien Chaumon, obVdo  
 Based on: https://github.com/guiomar/app-source-estimate
+
+## Citations
+
+Hayashi, S., Caron, B.A., Heinsfeld, A.S. et al. brainlife.io: a decentralized and open-source cloud platform to support neuroscience research. Nat Methods 21, 809–813 (2024). https://doi.org/10.1038/s41592-024-02237-2
+
+### MNE-Python
+
+Gramfort A, Luessi M, Larson E, Engemann DA, Strohmeier D, Brodbeck C, Goj R, Jas M, Brooks T, Parkkonen L, and Hämäläinen MS. **MEG and EEG data analysis with MNE-Python**. Frontiers in Neuroscience, 7(267):1–13, 2013. https://doi.org/10.3389/fnins.2013.00267
