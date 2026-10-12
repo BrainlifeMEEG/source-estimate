@@ -40,9 +40,11 @@ import matplotlib.pyplot as plt
 
 import mne
 
+mne.set_log_level('WARNING')
+
 # == SETUP ==
 ensure_output_dirs('out_dir', 'out_figs', 'out_report')
-report_items = []
+product_items = []
 
 # == LOAD CONFIG ==
 config = load_config()
@@ -51,19 +53,19 @@ config = load_config()
 inv_file = config.get('inverse') or ''
 if not inv_file or not os.path.isfile(inv_file):
     add_info_to_product(
-        report_items,
+        product_items,
         f"FATAL: Inverse operator not found: '{inv_file}'. Run app-inverse-v2 first.",
         "error"
     )
-    create_product_json(report_items)
+    create_product_json(product_items)
     sys.exit(1)
 
 try:
     inverse_operator = mne.minimum_norm.read_inverse_operator(inv_file, verbose=True)
-    add_info_to_product(report_items, f"Inverse operator loaded from {inv_file}", "info")
+    add_info_to_product(product_items, f"Inverse operator loaded from {inv_file}", "info")
 except Exception as e:
-    add_info_to_product(report_items, f"FATAL: Could not read inverse operator: {e}", "error")
-    create_product_json(report_items)
+    add_info_to_product(product_items, f"FATAL: Could not read inverse operator: {e}", "error")
+    create_product_json(product_items)
     sys.exit(1)
 
 # == LOAD SENSOR DATA ==
@@ -92,7 +94,7 @@ try:
         ev.comment = 'grand_average'
         evoked_list = [ev]
         add_info_to_product(
-            report_items,
+            product_items,
             f"Averaged {len(epochs)} epochs → 1 evoked ({ev.nave} averages, "
             f"{len(ev.ch_names)} channels)",
             "info"
@@ -102,21 +104,21 @@ try:
         if not isinstance(evoked_list, list):
             evoked_list = [evoked_list]
         add_info_to_product(
-            report_items,
+            product_items,
             f"Loaded {len(evoked_list)} evoked(s) from {evoked_file}",
             "info"
         )
     else:
         add_info_to_product(
-            report_items,
+            product_items,
             "FATAL: No sensor data found. Set 'epochs' or 'evoked' in config.json.",
             "error"
         )
-        create_product_json(report_items)
+        create_product_json(product_items)
         sys.exit(1)
 except Exception as e:
-    add_info_to_product(report_items, f"FATAL: Could not load sensor data: {e}", "error")
-    create_product_json(report_items)
+    add_info_to_product(product_items, f"FATAL: Could not load sensor data: {e}", "error")
+    create_product_json(product_items)
     sys.exit(1)
 
 # == INVERSE PARAMETERS ==
@@ -126,11 +128,11 @@ try:
     snr = float(config.get('snr') or 3.0)
 except (TypeError, ValueError):
     add_info_to_product(
-        report_items,
+        product_items,
         f"FATAL: snr='{config.get('snr')}' is not a valid number.",
         "error"
     )
-    create_product_json(report_items)
+    create_product_json(product_items)
     sys.exit(1)
 
 _pick_ori = config.get('pick_ori')
@@ -142,11 +144,11 @@ try:
     crop_tmin = None if _tmin_raw in (None, '', 'None') else float(_tmin_raw)
 except (TypeError, ValueError):
     add_info_to_product(
-        report_items,
+        product_items,
         f"FATAL: tmin='{_tmin_raw}' is not a valid number.",
         "error"
     )
-    create_product_json(report_items)
+    create_product_json(product_items)
     sys.exit(1)
 
 _tmax_raw = config.get('tmax')
@@ -154,21 +156,21 @@ try:
     crop_tmax = None if _tmax_raw in (None, '', 'None') else float(_tmax_raw)
 except (TypeError, ValueError):
     add_info_to_product(
-        report_items,
+        product_items,
         f"FATAL: tmax='{_tmax_raw}' is not a valid number.",
         "error"
     )
-    create_product_json(report_items)
+    create_product_json(product_items)
     sys.exit(1)
 
 valid_methods = ('MNE', 'dSPM', 'sLORETA', 'eLORETA')
 if method not in valid_methods:
     add_info_to_product(
-        report_items,
+        product_items,
         f"FATAL: method='{method}' not valid. Choose from {valid_methods}.",
         "error"
     )
-    create_product_json(report_items)
+    create_product_json(product_items)
     sys.exit(1)
 
 # EEG average reference + baseline + optional crop for all evokeds
@@ -178,7 +180,7 @@ for ev in evoked_list:
     ev.apply_baseline((None, 0))
     if crop_tmin is not None or crop_tmax is not None:
         ev.crop(tmin=crop_tmin, tmax=crop_tmax)
-        add_info_to_product(report_items,
+        add_info_to_product(product_items,
                             f"Cropped [{ev.comment}] to [{crop_tmin}, {crop_tmax}] s "
                             f"→ {len(ev.times)} time points", "info")
 
@@ -205,10 +207,10 @@ if subjects_dir is None:
     _fsa_path = str(mne.datasets.fetch_fsaverage(verbose=False))
     subjects_dir = os.path.dirname(_fsa_path)
     subject      = 'fsaverage'
-    add_info_to_product(report_items,
+    add_info_to_product(product_items,
                         "No FreeSurfer dir provided — using built-in fsaverage for plots.", "info")
 else:
-    add_info_to_product(report_items,
+    add_info_to_product(product_items,
                         f"Using FreeSurfer subject '{subject}' from {subjects_dir}.", "info")
 
 morph_to_fsaverage = config.get('morph_to_fsaverage', False)
@@ -228,23 +230,23 @@ for ev in evoked_list:
             method=method, pick_ori=pick_ori, verbose=True
         )
         add_info_to_product(
-            report_items,
+            product_items,
             f"STC [{label}] ({method}): {stc.data.shape[0]} vertices, "
             f"{stc.data.shape[1]} time points",
             "info"
         )
     except Exception as e:
-        add_info_to_product(report_items, f"FATAL: apply_inverse failed for [{label}]: {e}", "error")
-        create_product_json(report_items)
+        add_info_to_product(product_items, f"FATAL: apply_inverse failed for [{label}]: {e}", "error")
+        create_product_json(product_items)
         sys.exit(1)
 
     stc_path = os.path.join('out_dir', f'source_estimate{suffix}')
     try:
         stc.save(stc_path, overwrite=True)
-        add_info_to_product(report_items, f"Saved: {stc_path}", "info")
+        add_info_to_product(product_items, f"Saved: {stc_path}", "info")
     except Exception as e:
-        add_info_to_product(report_items, f"FATAL: Could not save STC [{label}]: {e}", "error")
-        create_product_json(report_items)
+        add_info_to_product(product_items, f"FATAL: Could not save STC [{label}]: {e}", "error")
+        create_product_json(product_items)
         sys.exit(1)
 
     # Morph to fsaverage
@@ -252,7 +254,7 @@ for ev in evoked_list:
         if subject == 'fsaverage':
             stc_morphed = stc
             if len(stc_list) == 0:
-                add_info_to_product(report_items, "Already in fsaverage — skipping morph.", "info")
+                add_info_to_product(product_items, "Already in fsaverage — skipping morph.", "info")
         else:
             try:
                 if morph is None:
@@ -265,9 +267,9 @@ for ev in evoked_list:
                 stc_morphed = morph.apply(stc)
                 morph_path  = os.path.join('out_dir', f'source_estimate_fsaverage{suffix}')
                 stc_morphed.save(morph_path, overwrite=True)
-                add_info_to_product(report_items, f"Morphed → fsaverage: {morph_path}", "info")
+                add_info_to_product(product_items, f"Morphed → fsaverage: {morph_path}", "info")
             except Exception as e:
-                add_info_to_product(report_items, f"Could not morph [{label}]: {e}", "warning")
+                add_info_to_product(product_items, f"Could not morph [{label}]: {e}", "warning")
 
     stc_list.append((label, stc, ev))
 
@@ -293,9 +295,9 @@ try:
     fig_path = os.path.join('out_figs', 'evoked_butterfly.png')
     fig_evoked.savefig(fig_path, dpi=72, bbox_inches='tight')
     plt.close(fig_evoked)
-    add_image_to_product(report_items, 'Evoked Response (grand avg)', filepath=fig_path)
+    add_image_to_product(product_items, 'Evoked Response (grand avg)', filepath=fig_path)
 except Exception as e:
-    add_info_to_product(report_items, f"Could not plot evoked: {e}", "warning")
+    add_info_to_product(product_items, f"Could not plot evoked: {e}", "warning")
 
 # Source time course — one figure per condition, LH + RH side by side
 tc_fig_paths = {}  # label → saved png path
@@ -338,24 +340,24 @@ try:
         ga_tc_path = os.path.join('out_figs', 'source_time_course_grandavg.png')
         fig_ga.savefig(ga_tc_path, dpi=72, bbox_inches='tight')
         plt.close(fig_ga)
-        add_image_to_product(report_items, 'Source Time Course (grand avg)', filepath=ga_tc_path)
+        add_image_to_product(product_items, 'Source Time Course (grand avg)', filepath=ga_tc_path)
     else:
-        add_image_to_product(report_items, 'Source Time Course',
+        add_image_to_product(product_items, 'Source Time Course',
                              filepath=next(iter(tc_fig_paths.values())))
 except Exception as e:
-    add_info_to_product(report_items, f"Could not plot source time course: {e}", "warning")
+    add_info_to_product(product_items, f"Could not plot source time course: {e}", "warning")
 
 # Peak info — grand average
 try:
     for hemi in ('lh', 'rh'):
         peak_vert, peak_time = stc_ga.get_peak(hemi=hemi, tmin=0)
         add_info_to_product(
-            report_items,
+            product_items,
             f"Peak grand avg ({hemi}): vertex {peak_vert} at {peak_time * 1000:.1f} ms",
             "info"
         )
 except Exception as e:
-    add_info_to_product(report_items, f"Could not get peak: {e}", "warning")
+    add_info_to_product(product_items, f"Could not get peak: {e}", "warning")
 
 # Brain surface filmstrip — grand average STC at multiple timepoints
 if subject and subjects_dir:
@@ -413,11 +415,11 @@ if subject and subjects_dir:
             strip_path = os.path.join('out_figs', f'brain_{_hemi}.png')
             fig_s.savefig(strip_path, dpi=120, bbox_inches='tight')
             plt.close(fig_s)
-            add_image_to_product(report_items,
+            add_image_to_product(product_items,
                                  f'Brain {_hemi.upper()} filmstrip',
                                  filepath=strip_path)
     except Exception as e:
-        add_info_to_product(report_items, f"Could not render brain surface plot: {e}", "warning")
+        add_info_to_product(product_items, f"Could not render brain surface plot: {e}", "warning")
 
 # == SAVE REPORT ==
 report = mne.Report(title='Source Estimate Report')
@@ -436,14 +438,14 @@ for label, stc, _ in stc_list:
                            subject=subject, subjects_dir=subjects_dir,
                            n_time_points=20, stc_plot_kwargs=dict(time_viewer=False))
         except Exception as e:
-            add_info_to_product(report_items, f"Could not add STC [{label}] to report: {e}", "warning")
+            add_info_to_product(product_items, f"Could not add STC [{label}] to report: {e}", "warning")
 
 report.save(os.path.join('out_report', 'report.html'), overwrite=True)
 
 add_info_to_product(
-    report_items,
+    product_items,
     f"Source estimation completed: {len(stc_list)} STC(s) saved.",
     "success"
 )
-create_product_json(report_items)
+create_product_json(product_items)
 print("Done.")
