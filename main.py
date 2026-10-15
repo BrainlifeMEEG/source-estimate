@@ -57,6 +57,7 @@ if not inv_file or not os.path.isfile(inv_file):
         f"FATAL: Inverse operator not found: '{inv_file}'. Run app-inverse-v2 first.",
         "error"
     )
+    print(f"ERROR: {product_items[-1]['msg']}", file=sys.stderr)
     create_product_json(product_items)
     sys.exit(1)
 
@@ -65,6 +66,7 @@ try:
     add_info_to_product(product_items, f"Inverse operator loaded from {inv_file}", "info")
 except Exception as e:
     add_info_to_product(product_items, f"FATAL: Could not read inverse operator: {e}", "error")
+    print(f"ERROR: {product_items[-1]['msg']}", file=sys.stderr)
     create_product_json(product_items)
     sys.exit(1)
 
@@ -114,10 +116,12 @@ try:
             "FATAL: No sensor data found. Set 'epochs' or 'evoked' in config.json.",
             "error"
         )
+        print(f"ERROR: {product_items[-1]['msg']}", file=sys.stderr)
         create_product_json(product_items)
         sys.exit(1)
 except Exception as e:
     add_info_to_product(product_items, f"FATAL: Could not load sensor data: {e}", "error")
+    print(f"ERROR: {product_items[-1]['msg']}", file=sys.stderr)
     create_product_json(product_items)
     sys.exit(1)
 
@@ -132,6 +136,7 @@ except (TypeError, ValueError):
         f"FATAL: snr='{config.get('snr')}' is not a valid number.",
         "error"
     )
+    print(f"ERROR: {product_items[-1]['msg']}", file=sys.stderr)
     create_product_json(product_items)
     sys.exit(1)
 
@@ -148,6 +153,7 @@ except (TypeError, ValueError):
         f"FATAL: tmin='{_tmin_raw}' is not a valid number.",
         "error"
     )
+    print(f"ERROR: {product_items[-1]['msg']}", file=sys.stderr)
     create_product_json(product_items)
     sys.exit(1)
 
@@ -160,6 +166,7 @@ except (TypeError, ValueError):
         f"FATAL: tmax='{_tmax_raw}' is not a valid number.",
         "error"
     )
+    print(f"ERROR: {product_items[-1]['msg']}", file=sys.stderr)
     create_product_json(product_items)
     sys.exit(1)
 
@@ -170,6 +177,7 @@ if method not in valid_methods:
         f"FATAL: method='{method}' not valid. Choose from {valid_methods}.",
         "error"
     )
+    print(f"ERROR: {product_items[-1]['msg']}", file=sys.stderr)
     create_product_json(product_items)
     sys.exit(1)
 
@@ -237,6 +245,7 @@ for ev in evoked_list:
         )
     except Exception as e:
         add_info_to_product(product_items, f"FATAL: apply_inverse failed for [{label}]: {e}", "error")
+        print(f"ERROR: {product_items[-1]['msg']}", file=sys.stderr)
         create_product_json(product_items)
         sys.exit(1)
 
@@ -246,6 +255,7 @@ for ev in evoked_list:
         add_info_to_product(product_items, f"Saved: {stc_path}", "info")
     except Exception as e:
         add_info_to_product(product_items, f"FATAL: Could not save STC [{label}]: {e}", "error")
+        print(f"ERROR: {product_items[-1]['msg']}", file=sys.stderr)
         create_product_json(product_items)
         sys.exit(1)
 
