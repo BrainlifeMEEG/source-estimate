@@ -413,11 +413,18 @@ if subject and subjects_dir:
                            f'[peak at {_tpeak * 1000:.0f} ms]', fontsize=10)
             plt.tight_layout()
             strip_path = os.path.join('out_figs', f'brain_{_hemi}.png')
-            fig_s.savefig(strip_path, dpi=120, bbox_inches='tight')
+            # Two resolutions. The full-detail one goes to out_figs and into the
+            # HTML report, which has no size limit. product.json embeds each PNG as
+            # base64, costing a third on top, and Brainlife rejects the whole output
+            # above 1 MB - at dpi=120 these two filmstrips alone were 666 kB of an
+            # 848 kB payload. So the embedded copy is a thumbnail.
+            fig_s.savefig(strip_path, dpi=150, bbox_inches='tight')
+            thumb_path = os.path.join('out_figs', f'brain_{_hemi}_thumb.png')
+            fig_s.savefig(thumb_path, dpi=60, bbox_inches='tight')
             plt.close(fig_s)
             add_image_to_product(product_items,
                                  f'Brain {_hemi.upper()} filmstrip',
-                                 filepath=strip_path)
+                                 filepath=thumb_path)
     except Exception as e:
         add_info_to_product(product_items, f"Could not render brain surface plot: {e}", "warning")
 
@@ -439,6 +446,14 @@ for label, stc, _ in stc_list:
                            n_time_points=20, stc_plot_kwargs=dict(time_viewer=False))
         except Exception as e:
             add_info_to_product(product_items, f"Could not add STC [{label}] to report: {e}", "warning")
+
+for _hemi in ('lh', 'rh'):
+    _strip = os.path.join('out_figs', f'brain_{_hemi}.png')
+    if os.path.isfile(_strip):
+        try:
+            report.add_image(_strip, title=f'Brain {_hemi.upper()} filmstrip')
+        except Exception as e:
+            add_info_to_product(product_items, f"Could not add {_hemi} filmstrip to report: {e}", "warning")
 
 report.save(os.path.join('out_report', 'report.html'), overwrite=True)
 
