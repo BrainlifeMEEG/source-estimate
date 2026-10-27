@@ -62,7 +62,7 @@ if not inv_file or not os.path.isfile(inv_file):
     sys.exit(1)
 
 try:
-    inverse_operator = mne.minimum_norm.read_inverse_operator(inv_file, verbose=True)
+    inverse_operator = mne.minimum_norm.read_inverse_operator(inv_file)
     add_info_to_product(product_items, f"Inverse operator loaded from {inv_file}", "info")
 except Exception as e:
     add_info_to_product(product_items, f"FATAL: Could not read inverse operator: {e}", "error")
@@ -235,7 +235,7 @@ for ev in evoked_list:
     try:
         stc = mne.minimum_norm.apply_inverse(
             ev, inverse_operator, lambda2,
-            method=method, pick_ori=pick_ori, verbose=True
+            method=method, pick_ori=pick_ori
         )
         add_info_to_product(
             product_items,
@@ -252,7 +252,10 @@ for ev in evoked_list:
     stc_path = os.path.join('out_dir', f'source_estimate{suffix}')
     try:
         stc.save(stc_path, overwrite=True)
-        add_info_to_product(product_items, f"Saved: {stc_path}", "info")
+        # Load it back before reporting success, so a truncated or corrupt write
+        # fails here rather than in label-timecourse.
+        mne.read_source_estimate(stc_path)
+        add_info_to_product(product_items, f"Saved and verified: {stc_path}", "info")
     except Exception as e:
         add_info_to_product(product_items, f"FATAL: Could not save STC [{label}]: {e}", "error")
         print(f"ERROR: {product_items[-1]['msg']}", file=sys.stderr)
@@ -269,10 +272,10 @@ for ev in evoked_list:
             try:
                 if morph is None:
                     if not os.path.isdir(os.path.join(subjects_dir, 'fsaverage')):
-                        mne.datasets.fetch_fsaverage(subjects_dir=subjects_dir, verbose=True)
+                        mne.datasets.fetch_fsaverage(subjects_dir=subjects_dir)
                     morph = mne.compute_source_morph(
                         stc, subject_from=subject, subject_to='fsaverage',
-                        subjects_dir=subjects_dir, verbose=True
+                        subjects_dir=subjects_dir
                     )
                 stc_morphed = morph.apply(stc)
                 morph_path  = os.path.join('out_dir', f'source_estimate_fsaverage{suffix}')
@@ -465,7 +468,13 @@ for _hemi in ('lh', 'rh'):
         except Exception as e:
             add_info_to_product(product_items, f"Could not add {_hemi} filmstrip to report: {e}", "warning")
 
-report.save(os.path.join('out_report', 'report.html'), overwrite=True)
+# A failed report must not cost us product.json: the real output is
+# already on disk by this point, and an unguarded failure here would
+# exit with a bare traceback and no diagnostics at all.
+try:
+    report.save(os.path.join('out_report', 'report.html'), overwrite=True)
+except Exception as e:
+    add_info_to_product(product_items, f"Could not save HTML report: {e}", "warning")
 
 add_info_to_product(
     product_items,
