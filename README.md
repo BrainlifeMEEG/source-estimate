@@ -1,5 +1,55 @@
 # Source Estimate
 
+<!-- brainlife-app:begin (generated from the App manifest; edit the manifest, not this block) -->
+
+> **Apply a pre-computed inverse operator to evoked MEG/EEG data and produce source estimates (STCs).**
+
+Uses mne.minimum_norm.apply_inverse to produce one STC per evoked condition (or one from the averaged epochs if no evoked file is given), optionally morphed to fsaverage, with QC figures and an HTML report. Needs an inverse operator (e.g. from app-inverse-v2) and either evoked or epochs data; the FreeSurfer subject is used for surface plots and morphing.
+
+| | |
+|---|---|
+| 📥 **Inputs** | `neuro/meeg/mne/forward-inverse` · `neuro/freesurfer` (optional) · `neuro/meeg/mne/epochs` (optional) · `neuro/meeg/mne/evoked` (optional) |
+| 📤 **Outputs** | `neuro/meeg/stc` · `report/html` |
+| 🐳 **Container** | `brainlifemeeg/mne-freesurfer:1.12.1-7.4.1` |
+| ⚙️ **Resources** | 1 CPUs · 40 GB memory · 4 h walltime |
+| 🔑 **Requires** | `FREESURFER_LICENSE`, `FS_LICENSE` |
+| 🔗 **Run it** | [doi.org/10.25663/brainlife.app.906](https://doi.org/10.25663/brainlife.app.906) |
+
+#### 📥 Inputs
+
+| Input | Datatype | Required | Description |
+|---|---|---|---|
+| `inverse` | `neuro/meeg/mne/forward-inverse` | yes | Inverse operator (inv.fif) from an inverse-operator App. |
+| `freesurfer` | `neuro/freesurfer` | no | Optional FreeSurfer subject directory for brain-surface plots and fsaverage morphing. |
+| `epo` | `neuro/meeg/mne/epochs` | no | Optional epochs, averaged to one evoked when no evoked input is given. |
+| `evoked` | `neuro/meeg/mne/evoked` | no | Optional evoked data, single or multi-condition; takes priority over epochs. |
+
+#### 📤 Outputs
+
+| Output | Datatype | Description |
+|---|---|---|
+| `out_dir` | `neuro/meeg/stc` | Source estimates (STC), one per condition, plus fsaverage-morphed copies if requested. |
+| `out_report` | `report/html` | HTML report with the source estimates and QC figures. |
+
+<details>
+<summary><b>⚙️ Parameters</b> (5)</summary>
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `method` | enum |  | Inverse method: dSPM, sLORETA, MNE or eLORETA (default dSPM). Options: `dSPM`, `MNE`, `eLORETA`, `sLORETA`. |
+| `snr` | number | `3` | Assumed signal-to-noise ratio; sets lambda2 = 1/SNR^2 (3 for averaged evoked data, 1-2 for noisy data). |
+| `pick_ori` | string | `None` | Source orientation constraint: empty/None for free orientation or normal. |
+| `tmin` | number |  | If set, crops each evoked to start at tmin before applying the inverse. (s) |
+| `tmax` | number |  | If set, crops each evoked to end at tmax before applying the inverse. (s) |
+
+</details>
+
+📚 **References used by this App:**
+- Hayashi S, et al. brainlife.io: a decentralized and open-source cloud platform to support neuroscience research. Nat Methods 21:809-813 (2024). [doi:10.1038/s41592-024-02237-2](https://doi.org/10.1038/s41592-024-02237-2)
+- Gramfort A, et al. MEG and EEG data analysis with MNE-Python. Front Neurosci 7:267 (2013). [doi:10.3389/fnins.2013.00267](https://doi.org/10.3389/fnins.2013.00267)
+
+<!-- brainlife-app:end -->
+
 [![Run on Brainlife.io](https://img.shields.io/badge/Brainlife-bl.app.906-blue.svg)](https://doi.org/10.25663/brainlife.app.906)
 
 ## Description
